@@ -1,0 +1,148 @@
+﻿#NoEnv
+
+#SingleInstance Force
+
+SetWorkingDir %A_ScriptDir%
+
+SetBatchLines, -1
+
+SetMouseDelay, -1
+
+DllCall("winmm\timeBeginPeriod", "UInt", 1)
+
+; --- CONFIGURATION ---
+
+SensScalar := 15 ; tweak to in-game sensitivity
+VDamping_1 := 2.05 ; enter in game gun value (aim camera body x layer 1)
+VSpeed_1   := 20.0 ; enter in game gun value (aim camera body x layer 1)
+VMean_1    := 2.25 ; enter in game gun value (aim camera body x layer 1)
+VDamping_2 := 1.15 ; enter in game gun value (aim camera body x layer 2)
+VSpeed_2   := 11.0 ; enter in game gun value (aim camera body x layer 2)
+VMean_2   := 1.18 ; enter in game gun value (aim camera body x layer 2)
+HDamping_1 := 0.0 ; enter in game gun value (aim camera body y layer 1 or 2)
+HSpeed_1   := 0.0 ; enter in game gun value (aim camera body y layer 1 or 2)
+HMean_1    := 0.0 ; enter in game gun value (aim camera body y layer 1 or 2)
+RPM      := 550 ; enter gun rpm
+dt := 1.0 / 120 ; adjust denominator to in game tick rate
+
+;----------------------
+
+interval := 60.0 / RPM
+
+RadToDeg := 57.296
+
+
+~2::Suspend, On
+
+~1::Suspend, Off
+
+F10::ExitApp
+
+
+
+~RButton & LButton::
+
+{
+    pV1 := 0.0
+
+    pV2 := 0.0
+
+    pH1 := 0.0
+
+    currentTotalY := 0.0
+
+    currentTotalX := 0.0
+
+    vV1 := VMean_1
+
+    vV2 := VMean_2
+
+    vH1 := HMean_1
+
+    nextShotTime := interval + (A_TickCount / 1000.0) ; Next shot at interval seconds	
+
+    LoopInterval_ms := dt * 1000.0
+
+    while (GetKeyState("RButton", "P") && GetKeyState("LButton", "P"))
+
+    {
+	loopStartTime := A_TickCount
+
+        if ((A_TickCount / 1000.0) >= nextShotTime) {
+
+            vV1 += VMean_1
+
+            vV2 += VMean_2
+	
+	    vH1 += HMean_1
+
+            nextShotTime += interval
+
+        }
+
+	
+        accelV1 := (VSpeed_1 ** 2) * (0 - pV1) - 2 * VDamping_1 * VSpeed_1 * vV1
+
+        vV1 := vV1 + (dt * accelV1)
+
+        pV1 := pV1 + (dt * vV1)
+
+
+
+        accelV2 := (VSpeed_2 ** 2) * (0 - pV2) - 2 * VDamping_2 * VSpeed_2 * vV2
+
+        vV2 := vV2 + (dt * accelV2)
+
+        pV2 := pV2 + (dt * vV2)
+
+
+	accelH1 := (HSpeed_1 ** 2) * (0 - pH1) - 2 * HDamping_1 * HSpeed_1 * vH1
+
+	vH1 := vH1 + (dt * accelH1)
+
+	pH1 := pH1 + (dt * vH1)
+
+
+        totalPV := pV1 + pV2
+
+        totalPVdeg := totalPV * RadToDeg
+
+	totalPHdeg := pH1 * RadToDeg
+
+        targetY := Round(totalPVdeg * SensScalar)
+
+	targetX := Round(totalPHdeg * SensScalar)
+
+        deltaY := targetY - currentTotalY
+
+	deltaX := targetX - currentTotalX
+
+        y := (deltaY > 0) ? deltaY : 0
+
+	if (HMean_1 > 0) 
+	{
+	    x := (deltaX > 0) ? deltaX : 0
+	}
+	else
+	{
+	    x := (deltaX < 0) ? deltaX : 0
+	}
+
+	currentTotalY += y
+
+	currentTotalX += x
+	
+        DllCall("mouse_event", "UInt", 1, "Int", x, "Int", y, "UInt", 0, "Ptr", 0)
+
+	checkTime := A_TickCount - loopStartTime 
+
+        Sleep, (LoopInterval_ms - checkTime)
+    }
+
+}
+return
+
+ExitSub:
+  DllCall("winmm\timeEndPeriod", "UInt", 1)
+  ExitApp
+return
