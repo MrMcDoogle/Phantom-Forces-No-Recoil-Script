@@ -1,4 +1,4 @@
-﻿#NoEnv
+#NoEnv
 
 #SingleInstance Force
 
@@ -12,24 +12,25 @@ DllCall("winmm\timeBeginPeriod", "UInt", 1)
 
 ; --- CONFIGURATION ---
 
-SensScalar := 15 ; tweak to in-game sensitivity
-VDamping_1 := 2.05 ; enter in game gun value (aim camera body x layer 1)
-VSpeed_1   := 20.0 ; enter in game gun value (aim camera body x layer 1)
-VMean_1    := 2.25 ; enter in game gun value (aim camera body x layer 1)
-VDamping_2 := 1.15 ; enter in game gun value (aim camera body x layer 2)
-VSpeed_2   := 11.0 ; enter in game gun value (aim camera body x layer 2)
-VMean_2   := 1.18 ; enter in game gun value (aim camera body x layer 2)
-HDamping_1 := 0.0 ; enter in game gun value (aim camera body y layer 1 or 2)
-HSpeed_1   := 0.0 ; enter in game gun value (aim camera body y layer 1 or 2)
-HMean_1    := 0.0 ; enter in game gun value (aim camera body y layer 1 or 2)
-RPM      := 550 ; enter gun rpm
-dt := 1.0 / 120 ; adjust denominator to in game tick rate
+SenseScalar := 18 ; tweak to in-game sensitivity
+VDamping1 := 2.05 ; enter in game gun value (aim camera body x layer 1)
+VSpeed1   := 17 ; enter in game gun value (aim camera body x layer 1)
+VMean1    := 1.88 ; enter in game gun value (aim camera body x layer 1)
+VDamping2 := 2.5 ; enter in game gun value (aim camera body x layer 2)
+VSpeed2   := 5 ; enter in game gun value (aim camera body x layer 2)
+VMean2   := 0.09 ; enter in game gun value (aim camera body x layer 2)
+HDamping1 := .8 ; enter in game gun value (aim camera body y layer 1 or 2)
+HSpeed1   := 46 ; enter in game gun value (aim camera body y layer 1 or 2)
+HMean1    := 0.91 ; enter in game gun value (aim camera body y layer 1 or 2)
+RPM      := 650 ; enter gun rpm
 
-;----------------------
+; ---------------------
+
+dt := 1.0 / 60
 
 interval := 60.0 / RPM
 
-RadToDeg := 57.296
+RadToDeg := 57.2958
 
 
 ~2::Suspend, On
@@ -41,7 +42,6 @@ F10::ExitApp
 
 
 ~RButton & LButton::
-
 {
     pV1 := 0.0
 
@@ -53,54 +53,103 @@ F10::ExitApp
 
     currentTotalX := 0.0
 
-    vV1 := VMean_1
+    vV1 := VMean1
 
-    vV2 := VMean_2
+    vV2 := VMean2
 
-    vH1 := HMean_1
+    vH1 := HMean1
 
     nextShotTime := interval + (A_TickCount / 1000.0) ; Next shot at interval seconds	
 
-    LoopInterval_ms := dt * 1000.0
+    LoopInterval := dt * 1000.0
 
     while (GetKeyState("RButton", "P") && GetKeyState("LButton", "P"))
-
     {
 	loopStartTime := A_TickCount
 
         if ((A_TickCount / 1000.0) >= nextShotTime) {
 
-            vV1 += VMean_1
+            vV1 += VMean1
 
-            vV2 += VMean_2
+            vV2 += VMean2
 	
-	    vH1 += HMean_1
+	    vH1 += HMean1
 
             nextShotTime += interval
-
         }
 
 	
-        accelV1 := (VSpeed_1 ** 2) * (0 - pV1) - 2 * VDamping_1 * VSpeed_1 * vV1
+; --- RK4 ---
+; --- Layer V1 ---
+	k1_accelV1 := (VSpeed1 ** 2) * (0 - pV1) - 2 * VDamping1 * VSpeed1 * vV1
+	k1_velV1 := vV1
 
-        vV1 := vV1 + (dt * accelV1)
+	mid1_pV1 := pV1 + k1_velV1 * (dt / 2.0)
+	mid1_vV1 := vV1 + k1_accelV1 * (dt / 2.0)
+	k2_accelV1 := (VSpeed1 ** 2) * (0 - mid1_pV1) - 2 * VDamping1 * VSpeed1 * mid1_vV1
+	k2_velV1 := mid1_vV1
 
-        pV1 := pV1 + (dt * vV1)
+	mid2_pV1 := pV1 + k2_velV1 * (dt / 2.0)
+	mid2_vV1 := vV1 + k2_accelV1 * (dt / 2.0)
+	k3_accelV1 := (VSpeed1 ** 2) * (0 - mid2_pV1) - 2 * VDamping1 * VSpeed1 * mid2_vV1
+	k3_velV1 := mid2_vV1
+
+	end_pV1 := pV1 + k3_velV1 * dt
+	end_vV1 := vV1 + k3_accelV1 * dt
+	k4_accelV1 := (VSpeed1 ** 2) * (0 - end_pV1) - 2 * VDamping1 * VSpeed1 * end_vV1
+	k4_velV1 := end_vV1
+
+; Update
+	pV1 := pV1 + (k1_velV1 + 2*k2_velV1 + 2*k3_velV1 + k4_velV1) * (dt / 6.0)
+	vV1 := vV1 + (k1_accelV1 + 2*k2_accelV1 + 2*k3_accelV1 + k4_accelV1) * (dt / 6.0)
 
 
+; --- Layer V2 ---
+	k1_accelV2 := (VSpeed2 ** 2) * (0 - pV2) - 2 * VDamping2 * VSpeed2 * vV2
+	k1_velV2 := vV2
 
-        accelV2 := (VSpeed_2 ** 2) * (0 - pV2) - 2 * VDamping_2 * VSpeed_2 * vV2
+	mid1_pV2 := pV2 + k1_velV2 * (dt / 2.0)
+	mid1_vV2 := vV2 + k1_accelV2 * (dt / 2.0)
+	k2_accelV2 := (VSpeed2 ** 2) * (0 - mid1_pV2) - 2 * VDamping2 * VSpeed2 * mid1_vV2
+	k2_velV2 := mid1_vV2
 
-        vV2 := vV2 + (dt * accelV2)
+	mid2_pV2 := pV2 + k2_velV2 * (dt / 2.0)
+	mid2_vV2 := vV2 + k2_accelV2 * (dt / 2.0)
+	k3_accelV2 := (VSpeed2 ** 2) * (0 - mid2_pV2) - 2 * VDamping2 * VSpeed2 * mid2_vV2
+	k3_velV2 := mid2_vV2
 
-        pV2 := pV2 + (dt * vV2)
+	end_pV2 := pV2 + k3_velV2 * dt
+	end_vV2 := vV2 + k3_accelV2 * dt
+	k4_accelV2 := (VSpeed2 ** 2) * (0 - end_pV2) - 2 * VDamping2 * VSpeed2 * end_vV2
+	k4_velV2 := end_vV2
+
+	pV2 := pV2 + (k1_velV2 + 2*k2_velV2 + 2*k3_velV2 + k4_velV2) * (dt / 6.0)
+	vV2 := vV2 + (k1_accelV2 + 2*k2_accelV2 + 2*k3_accelV2 + k4_accelV2) * (dt / 6.0)
 
 
-	accelH1 := (HSpeed_1 ** 2) * (0 - pH1) - 2 * HDamping_1 * HSpeed_1 * vH1
+; --- Layer H1 ---
+	k1_accelH1 := (HSpeed1 ** 2) * (0 - pH1) - 2 * HDamping1 * HSpeed1 * vH1
+	k1_velH1 := vH1
 
-	vH1 := vH1 + (dt * accelH1)
+	mid1_pH1 := pH1 + k1_velH1 * (dt / 2.0)
+	mid1_vV1 := vH1 + k1_accelH1 * (dt / 2.0)
+	k2_accelH1 := (HSpeed1 ** 2) * (0 - mid1_pH1) - 2 * HDamping1 * HSpeed1 * mid1_vV1
+	k2_velH1 := mid1_vV1
 
-	pH1 := pH1 + (dt * vH1)
+	mid2_pH1 := pH1 + k2_velH1 * (dt / 2.0)
+	mid2_vV1 := vH1 + k2_accelH1 * (dt / 2.0)
+	k3_accelH1 := (HSpeed1 ** 2) * (0 - mid2_pH1) - 2 * HDamping1 * HSpeed1 * mid2_vV1
+	k3_velH1 := mid2_vV1
+
+	end_pH1 := pH1 + k3_velH1 * dt
+	end_vV1 := vH1 + k3_accelH1 * dt
+	k4_accelH1 := (HSpeed1 ** 2) * (0 - end_pH1) - 2 * HDamping1 * HSpeed1 * end_vV1
+	k4_velH1 := end_vV1
+
+	pH1 := pH1 + (k1_velH1 + 2*k2_velH1 + 2*k3_velH1 + k4_velH1) * (dt / 6.0)
+	vH1 := vH1 + (k1_accelH1 + 2*k2_accelH1 + 2*k3_accelH1 + k4_accelH1) * (dt / 6.0)
+
+; --- End of RK4 ---
 
 
         totalPV := pV1 + pV2
@@ -109,9 +158,11 @@ F10::ExitApp
 
 	totalPHdeg := pH1 * RadToDeg
 
-        targetY := Round(totalPVdeg * SensScalar)
 
-	targetX := Round(totalPHdeg * SensScalar)
+        targetY := Round(totalPVdeg * SenseScalar)
+
+	targetX := Round(totalPHdeg * SenseScalar)
+
 
         deltaY := targetY - currentTotalY
 
@@ -119,7 +170,7 @@ F10::ExitApp
 
         y := (deltaY > 0) ? deltaY : 0
 
-	if (HMean_1 > 0) 
+	if (HMean1 > 0) 
 	{
 	    x := (deltaX > 0) ? deltaX : 0
 	}
@@ -136,9 +187,8 @@ F10::ExitApp
 
 	checkTime := A_TickCount - loopStartTime 
 
-        Sleep, (LoopInterval_ms - checkTime)
+        Sleep, (LoopInterval - checkTime)
     }
-
 }
 return
 
