@@ -100,7 +100,6 @@ F10::ExitApp
 	k4_accelV1 := (VSpeed1 ** 2) * (0 - end_pV1) - 2 * VDamping1 * VSpeed1 * end_vV1
 	k4_velV1 := end_vV1
 
-; Update
 	pV1 := pV1 + (k1_velV1 + 2*k2_velV1 + 2*k3_velV1 + k4_velV1) * (dt / 6.0)
 	vV1 := vV1 + (k1_accelV1 + 2*k2_accelV1 + 2*k3_accelV1 + k4_accelV1) * (dt / 6.0)
 
@@ -197,4 +196,5 @@ ExitSub:
   DllCall("winmm\timeEndPeriod", "UInt", 1)
   ExitApp
 return
+
 
